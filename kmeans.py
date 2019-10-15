@@ -90,19 +90,32 @@ def kmeans(X, k_or_y:'k is the number of clusters, y is the true labels array'):
 
 
 
-#demo
+# DEMO ############################
+
 import matplotlib.pyplot as plt
 from sklearn.datasets import make_blobs
 X, y = make_blobs()
-
-
 labels = kmeans(X, y)
 plt.scatter(*X.T, c=labels)
+    
+
+def load_from_github(url):
+    from urllib.request import urlopen
+    from os import remove
+    
+    obj = urlopen(path)
+    assert obj.getcode()==200,"unable to open"
+
+    s = str(obj.read(), encoding="utf-8")
+    NAME = "_temp.py"
+    with open(NAME, mode='wt', encoding='utf-8') as fh: fh.write(s)
+    module = __import__(NAME[:-3])
+    remove(NAME)
+    return module
 
 
-
-from untitled2 import make_data_for_classification
-X,y = make_data_for_classification(m=150, n=5, k=4, blobs_density=0.5)
-
+path = r"https://raw.githubusercontent.com/leztien/synthetic_datasets/master/make_data_for_classification.py"
+module = load_from_github(path)
+X,y = module.make_data_for_classification(m=500, n=5, k=4, blobs_density=0.5)
 labels = kmeans(X, y)
 
