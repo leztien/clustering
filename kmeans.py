@@ -1,104 +1,70 @@
 """
-k-means algorithm 
-(if you provide the true labels array, this function will calculate the accuracy based on entropy)
+k-means algorithm
 """
 
 import numpy as np
-def kmeans(X, k_or_y:'k is the number of clusters, y is the true labels array'):
+from sklearn.metrics import pairwise_distances_argmin
+from collections import deque
+
+log = []
+def fitness(X,y,C):
+    """fitness function that is supposed to be maximized"""
+    global log
+    distances = ((X-C[y])**2).sum(axis=1)**0.5
+    average_distance = distances.mean()
+    log.append(average_distance)
+    b = log == sorted(log)[::-1]  # is continuously decreasing?
+    return -average_distance  # negative because this is a MAXIMAZATION function
+
+
+def kmeans(X, n_clusters=2, max_iter=100):
     try: m,n = X.shape
     except AttributeError: m,n = len(X),len(X[0])
-    
-    try: #assume k_or_y is the target-array
-        k = len(set(k_or_y))
-        y = tuple(k_or_y)
-    except TypeError: # assume k_or_y is an int
-        k = int(k_or_y)
-        y = None
-    
+    k = n_clusters
     
     # container for the current centroids
-    from collections import deque
     q = deque(maxlen=2)       
     
-    #initialize centroids
-    mn = X.min(0)
-    mx = X.max(0)
-    r = (X.max(0)-X.min(0)).max() # range along the longest dimension
-    epsilon = r/100
-    
     #C = centroids matrix
-    C = np.random.uniform(low=mn, high=mx, size=(k,n))
+    C = X[np.random.permutation(len(X))[:k]]
     
-    
-    for loop in range(100):
-        #D = distance matrix
-        D = np.square(np.expand_dims(X, axis=0) - np.expand_dims(C, axis=1)).sum(axis=-1).T
+    #LOOP
+    for loop in range(max_iter):
+        #EXPECTATION (i.e. update expectation of which cluster each point must belong to)
+        labels = pairwise_distances_argmin(X,C)
         
-        #assign labels
-        labels = D.argmin(axis=1)
+        #if one centroid is left without any points assigned to it
         if len(set(labels))<k:
-            C = np.random.uniform(low=mn, high=mx, size=(k,n))
+            print("One (or) more centroids is left without any points assigned to it. Initializing random centroids again..")
+            C = X[np.random.permutation(len(X))[:k]]
             continue
         
-        #new centroids
+        #MAXIMAZATION
         C = np.array([X[labels==label].mean(axis=0) for label in range(k)])
+        f = fitness(X,labels,C)
+        print("loop {} maximizing the fitness function: {:.4f}".format(loop,f))
         
         #save current centroids
         q.append(C)
         
-        d = np.square(np.subtract.reduce(q)).sum(axis=1).max()
-        if d < epsilon: 
+        #check for convergence
+        if len(q)>1 and np.allclose(*q):
             print("\nbreaking after loop#", loop)
             break
-    else: print("failed to converge")
+            
+    else: print("failed to converge")    
+    return(labels,C)  # C = centroids
     
-    #asign the datapoints to the centroids
-    D = np.square(np.expand_dims(X, axis=0) - np.expand_dims(C, axis=1)).sum(axis=-1).T
-    labels = D.argmin(axis=1)
-    #bincounts = np.bincount(labels)
-    d = {c:i for i,c in enumerate(np.bincount(labels).argsort())}
-    labels = [d[k] for k in labels]
-    
-
-    if y:
-        #sort the Centroids matrix by the distance from the origin
-        nx = np.square(C).sum(1).argsort()
-        C = C[nx]
-        
-        if len(set(y)) != k:print("number of clusters do not match")
-        Creal = np.array([X[labels==label].mean(axis=0) for label in set(y)])
-        
-        nx = np.square(Creal).sum(1).argsort()
-        Creal = Creal[nx]
-        
-        d = np.sqrt(np.square(C-Creal).sum(axis=1)).mean()
-        print("average distance between the true and fitted centroids =", round(d,3))
-        
-
-        def entropy(a):
-            from math import log2
-            pp = [a.count(n)/len(a) for n in set(a)]
-            entropy = -sum(p*log2(p) for p in pp)  # the less the better
-            return(entropy)
-        
-        arrays = (tuple(np.array(labels)[y==c]) for c in sorted(set(y)))
-        from statistics import mean
-        entropy = mean(entropy(a) for a in arrays)
-        print("average entropy =", round(entropy,3), "(the less the better)")
-        
-    return(labels)
-
-
 
 # DEMO ############################
 
 import matplotlib.pyplot as plt
 from sklearn.datasets import make_blobs
 X, y = make_blobs()
-labels = kmeans(X, y)
+labels,centroids = kmeans(X, n_clusters=3)
 plt.scatter(*X.T, c=labels)
-    
 
+    
 def load_from_github(url):
     from urllib.request import urlopen
     from os import remove
@@ -116,6 +82,7 @@ def load_from_github(url):
 
 path = r"https://raw.githubusercontent.com/leztien/synthetic_datasets/master/make_data_for_classification.py"
 module = load_from_github(path)
-X,y = module.make_data_for_classification(m=500, n=5, k=4, blobs_density=0.5)
-labels = kmeans(X, y)
-
+n_clusters = 5
+X,y = module.make_data_for_classification(m=100, n=10, k=n_clusters, blobs_density=0.9)
+labels,centroids = kmeans(X, n_clusters=n_clusters)
+print(np.bincount(y), np.bincount(labels))
