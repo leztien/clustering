@@ -40,7 +40,7 @@ def sample(probabilities, n_points=1):
     """sample a value for a multinomial distribution"""
     if n_points == 1:
         probabilities = np.array(probabilities)
-        probabilities = probabilities / probabilities.sum()
+        probabilities = probabilities / probabilities.sum()  # normalize so that the probabilities sum up to 1.0
         cum = probabilities.cumsum()
         r = np.random.random()
         for i,p in enumerate(cum):
@@ -160,13 +160,17 @@ def lda_clustering(data, n_topics, n_iter=10):
                 p1 = p_topics_given_document(n_topics=k, document_index=i, word_index=j, assignements=A)
                 p2 = p_word_given_topics(word=w, word_distributions=M)
                 # Probabilities of topics given word
-                pp = p1 * p2
-                # New assignement to the current word
-                a = pp.argmax()
+                pp = p1 * p2    # these probs are not normalized
+                # Sample from that multinomial distribution
+                a = sample(pp) # New assignement to the current word
                 A[i,j] = a
                 # Update the M-matrix by incrementing by one
                 M[a,w] += 1
                 M[a,-1] += 1
+    # Save the Assignements matrix for the possibility of post-analysis
+    lda_clustering.assignements = A
+    lda_clustering.word_distributions = M
+    # Return predicted topic mixes     
     return topic_mixes(assignements=A, n_topics=k) 
 
 
